@@ -1,13 +1,14 @@
-# There are two methods to securely store passwords
+# There are three methods to securely store passwords
 
 <!-- toc -->
 
 - [Method 1. Use `secret-tool` with `Keyring` (Gnome Keyring or KWallet).](#method-1-use-secret-tool-with-keyring-gnome-keyring-or-kwallet)
 - [Method 2. Use `pass` (Password Store) with `GPG` encryption subkey](#method-2-use-pass-password-store-with-gpg-encryption-subkey)
+- [Method 3. Use `passage` (Password Store) with `age` + YubiKey](#method-3-use-passage-password-store-with-age--yubikey)
 
 <!-- tocstop -->
 
-If you don't want to re-enter passwords everytime connect to a saved scheme/mount URI (SMB, FTP, etc), you can use `Keyring` + `secret-tool` or `pass` + `GPG` to store passwords. `Keyring` can only be use in GUI session, `GPG` can use in both Headless and GUI session.
+If you don't want to re-enter passwords everytime connect to a saved scheme/mount URI (SMB, FTP, etc), you can use `Keyring` + `secret-tool` or `pass` + `GPG` or `passage` + `age` to store passwords. `Keyring` can only be use in GUI session, `GPG` and `passage` can use in both Headless and GUI session.
 
 ## Method 1. Use `secret-tool` with `Keyring` (Gnome Keyring or KWallet).
 
@@ -180,3 +181,46 @@ gpgconf --kill gpg-agent
     echo <KEY_ID> > ~/.password-store/.gpg-id
     pass init <KEY_ID>
     ```
+
+## Method 3. Use `passage` (Password Store) with `age` + YubiKey
+
+Uses [passage](https://github.com/FiloSottile/passage) (a fork of `pass`) with [age](https://github.com/FiloSottile/age) encryption instead of GPG. Optionally backed by a YubiKey via [age-plugin-yubikey](https://github.com/str4d/age-plugin-yubikey) for hardware-backed key storage.  
+No GPG keyring, no keygrip, no gpg-agent required.
+
+- Install `passage`:
+
+  ```bash
+  # Arch
+  pacman -S passage
+
+  # Or install from source
+  # See https://github.com/FiloSottile/passage
+  ```
+
+- Set up passage with age (or age + YubiKey). Refer to [passage setup documentation](https://github.com/FiloSottile/passage) for details.
+
+- Make sure `passage` works:
+
+  ```bash
+  passage ls
+  ```
+
+- Add `password_vault = "passage"` to setup function in `~/.config/yazi/init.lua`:
+
+  ```lua
+  require("gvfs"):setup({
+    password_vault = "passage",
+  })
+  ```
+
+  No `key_grip` is needed — passage handles encryption via age identities.
+
+Now you can use gvfs.yazi and save passwords to the passage store.
+
+> [!IMPORTANT]
+> If you want to clear saved passwords, you can run these commands in terminal:
+
+```bash
+# Clear all saved passwords
+passage rm -r gvfs -f
+```

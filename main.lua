@@ -14,6 +14,7 @@ local GVFS_ROOT_MOUNTPOINT_FILE = "/run/media/" .. USER_NAME
 local SECRET_TOOL = "secret-tool"
 local GPG_TOOL = "gpg"
 local PASS_TOOL = "pass"
+local PASSAGE_TOOL = "passage"
 local SECRET_VAULT_VERSION = "1"
 local path_separator = package.config:sub(1, 1)
 
@@ -58,6 +59,7 @@ local NOTIFY_MSG = {
 local PASSWORD_VAULT = {
 	KEYRING = "keyring",
 	PASS = "pass",
+	PASSAGE = "passage",
 }
 
 ---@enum DEVICE_CONNECT_STATUS
@@ -543,11 +545,25 @@ local function is_secret_vault_available_gpg(unlock_vault_dialog, is_second_run)
 	return false
 end
 
+local function is_secret_vault_available_passage()
+	local res, err = Command(PASSAGE_TOOL)
+		:arg({ "ls" })
+		:stderr(Command.PIPED)
+		:stdout(Command.PIPED)
+		:output()
+	if err or (res and res.status and not res.status.success) then
+		return false
+	end
+	return true
+end
+
 local function is_secret_vault_available(unlock_vault_dialog)
 	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.KEYRING then
 		return is_secret_vault_available_keyring(unlock_vault_dialog)
 	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASS then
 		return is_secret_vault_available_gpg(unlock_vault_dialog)
+	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASSAGE then
+		return is_secret_vault_available_passage()
 	end
 	return nil
 end
@@ -639,11 +655,40 @@ local function save_password_gpg(password, protocol, user, domain, prefix, port,
 	return true
 end
 
+local function save_password_passage(password, protocol, user, domain, prefix, port, service_domain)
+	if not user or not password or not protocol or not domain then
+		return false
+	end
+
+	local res, err = Command(SHELL)
+		:arg({
+			"-c",
+			("printf '%s\n%s\n' " .. path_quote(password) .. " " .. path_quote(password) .. " | ")
+				.. PASSAGE_TOOL
+				.. " insert "
+				.. " -f "
+				.. path_quote(build_secret_vault_entry_gpg(protocol, user, domain, prefix, port, service_domain)),
+		})
+		:stderr(Command.PIPED)
+		:stdout(Command.PIPED)
+		:output()
+
+	if err or (res and res.status and not res.status.success) then
+		error(NOTIFY_MSG.SAVE_PASSWORD_FAILED, res and res.stderr or err)
+		return false
+	end
+
+	info(NOTIFY_MSG.SAVE_PASSWORD_SUCCESS)
+	return true
+end
+
 local function save_password(password, protocol, user, domain, prefix, port, service_domain)
 	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.KEYRING then
 		return save_password_keyring(password, protocol, user, domain, prefix, port, service_domain)
 	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASS then
 		return save_password_gpg(password, protocol, user, domain, prefix, port, service_domain)
+	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASSAGE then
+		return save_password_passage(password, protocol, user, domain, prefix, port, service_domain)
 	end
 	return false
 end
@@ -700,11 +745,32 @@ local function lookup_password_gpg(protocol, user, domain, prefix, port, service
 	return nil
 end
 
+local function lookup_password_passage(protocol, user, domain, prefix, port, service_domain)
+	if not user or not protocol or not domain then
+		return nil
+	end
+	local res, err = Command(PASSAGE_TOOL)
+		:arg({
+			"show",
+			build_secret_vault_entry_gpg(protocol, user, domain, prefix, port, service_domain),
+		})
+		:stderr(Command.PIPED)
+		:stdout(Command.PIPED)
+		:output()
+	if not err and res and res.status and res.status.success then
+		return res.stdout
+	end
+
+	return nil
+end
+
 local function lookup_password(protocol, user, domain, prefix, port, service_domain)
 	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.KEYRING then
 		return lookup_password_keyring(protocol, user, domain, prefix, port, service_domain)
 	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASS then
 		return lookup_password_gpg(protocol, user, domain, prefix, port, service_domain)
+	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASSAGE then
+		return lookup_password_passage(protocol, user, domain, prefix, port, service_domain)
 	end
 	return nil
 end
@@ -769,11 +835,30 @@ local function clear_password_gpg(protocol, user, domain, prefix, port, service_
 	return false
 end
 
+local function clear_password_passage(protocol, user, domain, prefix, port, service_domain)
+	local res, err = Command(PASSAGE_TOOL)
+		:arg({
+			"rm",
+			"-r",
+			"-f",
+			build_secret_vault_entry_gpg(protocol, user, domain, prefix, port, service_domain),
+		})
+		:stderr(Command.PIPED)
+		:stdout(Command.PIPED)
+		:output()
+	if not err and res and res.status and res.status.success then
+		return true
+	end
+	return false
+end
+
 local function clear_password(protocol, user, domain, prefix, port, service_domain)
 	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.KEYRING then
 		return clear_password_keyring(protocol, user, domain, prefix, port, service_domain)
 	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASS then
 		return clear_password_gpg(protocol, user, domain, prefix, port, service_domain)
+	elseif get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASSAGE then
+		return clear_password_passage(protocol, user, domain, prefix, port, service_domain)
 	end
 	return false
 end
@@ -2301,7 +2386,7 @@ function M:setup(opts)
 	end
 	if opts and opts.password_vault then
 		st[STATE_KEY.PASSWORD_VAULT] = (
-			opts and (opts.password_vault == PASSWORD_VAULT.KEYRING or opts.password_vault == PASSWORD_VAULT.PASS)
+			opts and (opts.password_vault == PASSWORD_VAULT.KEYRING or opts.password_vault == PASSWORD_VAULT.PASS or opts.password_vault == PASSWORD_VAULT.PASSAGE)
 		) and opts.password_vault
 	else
 		-- TODO: REMOVE: backwards compatibility
@@ -2438,6 +2523,11 @@ function M:entry(job)
 	end
 	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASS then
 		if not is_cmd_exist(GPG_TOOL) or not is_cmd_exist(PASS_TOOL) or get_state(STATE_KEY.KEY_GRIP) == nil then
+			set_state(STATE_KEY.PASSWORD_VAULT, nil)
+		end
+	end
+	if get_state(STATE_KEY.PASSWORD_VAULT) == PASSWORD_VAULT.PASSAGE then
+		if not is_cmd_exist(PASSAGE_TOOL) then
 			set_state(STATE_KEY.PASSWORD_VAULT, nil)
 		end
 	end

@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/fb74a710-5f05-4bf4-b95f-10f40583c5a0
 - After jumped to mounted location, jump back to the previous location
   with a single keybind. Make it easier to copy/paste files. (use `jump-back-prev-cwd`)
 - Add/Edit/Remove scheme/mount URI (use `add-mount`, `edit-mount`, `remove-mount`). Check this for schemes/mount URI format: [schemes.html](<https://wiki.gnome.org/Projects(2f)gvfs(2f)schemes.html>)
-- (Optional) Remember passwords using Keyring or Password Store (need `secret-tool` + `keyring` or `pass` + `gpg` installed)
+- (Optional) Remember passwords using Keyring, Password Store, or Passage (need `secret-tool` + `keyring` or `pass` + `gpg` or `passage` + `age` installed)
 
 ## Requirements
 
@@ -78,8 +78,8 @@ https://github.com/user-attachments/assets/fb74a710-5f05-4bf4-b95f-10f40583c5a0
 4. For headless session (non-active console, like connect to a computer via SSH, etc.)
    If you see `GVFS.yazi can only run on DBUS session` error message, please refer to [HEADLESS_WORKAROUND.md](./HEADLESS_WORKAROUND.md) for a workaround.
 
-5. (Optional) Store passwords with Keyring or Password Store (secret-tool + keyring or pass + gpg)
-   There are two methods to securely store passwords. Please refer to [SECURE_SAVED_PASSWORD.md](./SECURE_SAVED_PASSWORD.md) for more information.
+5. (Optional) Store passwords with Keyring, Password Store, or Passage (secret-tool + keyring, pass + gpg, or passage + age)
+   There are three methods to securely store passwords. Please refer to [SECURE_SAVED_PASSWORD.md](./SECURE_SAVED_PASSWORD.md) for more information.
 
 ## Installation
 
@@ -121,7 +121,7 @@ require("gvfs"):setup({
 
   -- (Optional) Select where to save passwords.
   -- Default: nil
-  -- Available options: "keyring", "pass", or nil
+  -- Available options: "keyring", "pass", "passage", or nil
   password_vault = "keyring",
 
   -- (Optional) Only need if you set password_vault = "pass"
