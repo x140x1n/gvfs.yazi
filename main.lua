@@ -1771,6 +1771,10 @@ local function jump_to_device_mountpoint_action(device, retry, automount)
 		local list_devices = list_gvfs_device_by_status(DEVICE_CONNECT_STATUS.MOUNTED)
 		device = #list_devices == 1 and list_devices[1] or nil
 		if not device then
+			if #list_devices == 0 then
+				info(NOTIFY_MSG.LIST_DEVICES_EMPTY)
+				return
+			end
 			local selected_device_idx = select_device_which_key(list_devices)
 			if not selected_device_idx then
 				return
@@ -1832,61 +1836,60 @@ local function mount_action(opts)
 		-- NOTE: Automatically select the first device if there is only one device
 		selected_device = #list_devices == 1 and list_devices[1] or nil
 		if not selected_device then
+			if #list_devices == 0 then
+				-- If every devices are mounted, then jump to the first one
+				local root_mountpoint = get_state(STATE_KEY.ROOT_MOUNTPOINT)
+				local list_devices_mounted = list_gvfs_device_by_status(DEVICE_CONNECT_STATUS.MOUNTED, function(d)
+					if d.scheme == SCHEME.FILE then
+						return (
+							d.mounts
+							and #d.mounts >= 1
+							and d.mounts[1].uri
+							and (
+								d.mounts[1].uri:match("^" .. is_literal_string("file://" .. root_mountpoint) .. "(.+)$")
+								or d.mounts[1].uri:match(
+									"^" .. is_literal_string("file://" .. GVFS_ROOT_MOUNTPOINT_FILE) .. "(.+)$"
+								)
+							)
+						)
+					end
+					return true
+				end)
+				selected_device = #list_devices_mounted >= 1 and list_devices_mounted[1] or nil
+				if not selected_device then
+					info(NOTIFY_MSG.LIST_DEVICES_EMPTY)
+					return
+				end
+				--NOTE: Fall-safe x-gvfs-show
+				local status, err = Command(SHELL)
+					:arg({
+						"-c",
+						"gio info " .. path_quote(
+							selected_device.uri or (#selected_device.mounts > 0 and selected_device.mounts[1].uri)
+						) .. ' | grep -E "^unix mount:.*x-gvfs-show.*"',
+					})
+					:env("XDG_RUNTIME_DIR", XDG_RUNTIME_DIR)
+					:env("LC_ALL", "C")
+					:stderr(Command.PIPED)
+					:stdout(Command.PIPED)
+					:status()
+				if err then
+					error(NOTIFY_MSG.UNMOUNT_ERROR, tostring(err))
+					return
+				end
+				if status and status.code == 0 then
+					error(NOTIFY_MSG.UNMOUNT_ERROR, "Can't unmount device mounted through /etc/fstab")
+					return
+				end
+
+				jump_to_device_mountpoint_action(selected_device)
+				return true
+			end
 			local selected_device_idx = select_device_which_key(list_devices)
 			if not selected_device_idx then
 				return
 			end
 			selected_device = list_devices[selected_device_idx]
-		end
-
-		if #list_devices == 0 then
-			-- If every devices are mounted, then jump to the first one
-			local root_mountpoint = get_state(STATE_KEY.ROOT_MOUNTPOINT)
-			local list_devices_mounted = list_gvfs_device_by_status(DEVICE_CONNECT_STATUS.MOUNTED, function(d)
-				if d.scheme == SCHEME.FILE then
-					return (
-						d.mounts
-						and #d.mounts >= 1
-						and d.mounts[1].uri
-						and (
-							d.mounts[1].uri:match("^" .. is_literal_string("file://" .. root_mountpoint) .. "(.+)$")
-							or d.mounts[1].uri:match(
-								"^" .. is_literal_string("file://" .. GVFS_ROOT_MOUNTPOINT_FILE) .. "(.+)$"
-							)
-						)
-					)
-				end
-				return true
-			end)
-			selected_device = #list_devices_mounted >= 1 and list_devices_mounted[1] or nil
-			if not selected_device then
-				info(NOTIFY_MSG.LIST_DEVICES_EMPTY)
-				return
-			end
-			--NOTE: Fall-safe x-gvfs-show
-			local status, err = Command(SHELL)
-				:arg({
-					"-c",
-					"gio info " .. path_quote(
-						selected_device.uri or (#selected_device.mounts > 0 and selected_device.mounts[1].uri)
-					) .. ' | grep -E "^unix mount:.*x-gvfs-show.*"',
-				})
-				:env("XDG_RUNTIME_DIR", XDG_RUNTIME_DIR)
-				:env("LC_ALL", "C")
-				:stderr(Command.PIPED)
-				:stdout(Command.PIPED)
-				:status()
-			if err then
-				error(NOTIFY_MSG.UNMOUNT_ERROR, tostring(err))
-				return
-			end
-			if status and status.code == 0 then
-				error(NOTIFY_MSG.UNMOUNT_ERROR, "Can't unmount device mounted through /etc/fstab")
-				return
-			end
-
-			jump_to_device_mountpoint_action(selected_device)
-			return true
 		end
 	else
 		selected_device = opts.device
@@ -1962,6 +1965,10 @@ local function unmount_action(device, eject, force)
 			end
 			return true
 		end)
+		if #list_devices == 0 then
+			info(NOTIFY_MSG.LIST_DEVICES_EMPTY)
+			return
+		end
 		-- NOTE: Automatically select the first device if there is only one device
 		selected_device = #list_devices == 1 and list_devices[1] or nil
 		if not selected_device then
@@ -1972,10 +1979,6 @@ local function unmount_action(device, eject, force)
 			selected_device = list_devices[selected_device_idx]
 		end
 
-		if not selected_device and #list_devices == 0 then
-			info(NOTIFY_MSG.LIST_DEVICES_EMPTY)
-			return
-		end
 		--NOTE: Fall-safe x-gvfs-show
 		if selected_device then
 			local status, err = Command(SHELL)
