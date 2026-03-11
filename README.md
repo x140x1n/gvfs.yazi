@@ -12,7 +12,7 @@
 
 <!-- tocstop -->
 
-[gvfs.yazi](https://github.com/boydaihungst/gvfs.yazi) uses [gvfs](https://wiki.gnome.org/Projects/gvfs) and [gio from glib](https://github.com/GNOME/glib) to transparently mount and unmount devices or remote storage in read and write mode,
+[gvfs.yazi](https://github.com/x140x1n/gvfs.yazi) uses [gvfs](https://wiki.gnome.org/Projects/gvfs) and [gio from glib](https://github.com/GNOME/glib) to transparently mount and unmount devices or remote storage in read and write mode,
 allowing you to navigate inside, view, and edit individual or groups of files and folders.
 
 Supported protocols: MTP, Hard disk/drive, SMB, SFTP, NFS, GPhoto2 (PTP), FTP, Google Drive (via [GOA](./GNOME_ONLINE_ACCOUNTS_GOA.md)), One drive (via [GOA](./GNOME_ONLINE_ACCOUNTS_GOA.md)), DNS-SD, DAV (WebDAV), AFP, AFC. You need to install corresponding packages to use them.
@@ -41,6 +41,8 @@ https://github.com/user-attachments/assets/fb74a710-5f05-4bf4-b95f-10f40583c5a0
 - Jump to mounted location (use `jump-to-device`)
 - After jumped to mounted location, jump back to the previous location
   with a single keybind. Make it easier to copy/paste files. (use `jump-back-prev-cwd`)
+- Graceful handling when no devices are available — actions that require a device
+  selection now show a notification instead of silently failing.
 - Add/Edit/Remove scheme/mount URI (use `add-mount`, `edit-mount`, `remove-mount`). Check this for schemes/mount URI format: [schemes.html](<https://wiki.gnome.org/Projects(2f)gvfs(2f)schemes.html>)
 - (Optional) Remember passwords using Keyring, Password Store, or Passage (need `secret-tool` + `keyring` or `pass` + `gpg` or `passage` + `age` installed)
 
@@ -84,7 +86,7 @@ https://github.com/user-attachments/assets/fb74a710-5f05-4bf4-b95f-10f40583c5a0
 ## Installation
 
 ```sh
-ya pkg add boydaihungst/gvfs
+ya pkg add x140x1n/gvfs
 ```
 
 Modify your `~/.config/yazi/init.lua` to include (`setup` function is required):
