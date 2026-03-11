@@ -2,7 +2,6 @@
 
 <!-- toc -->
 
-- [Preview](#preview)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -22,14 +21,6 @@ Tested: MTP, Hard disk/drive (Encrypted and Unencrypted), GPhoto2 (PTP), DAV, SF
 > [!NOTE]
 >
 > - This plugin only supports Linux
-
-## Preview
-
-https://github.com/user-attachments/assets/6aad98f7-081a-4e06-b398-5f7e8ca4ab39
-
-Google-drive:
-
-https://github.com/user-attachments/assets/fb74a710-5f05-4bf4-b95f-10f40583c5a0
 
 ## Features
 
